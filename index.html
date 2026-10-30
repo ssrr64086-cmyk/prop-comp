@@ -1,0 +1,534 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>مسابقة الاحتمال</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>try{document.documentElement.setAttribute('dir','rtl');document.documentElement.setAttribute('lang','ar');}catch(e){}</script>
+<style>
+/* Layout: arcade-style quiz board — header, 3 team scoreboard, 12-question grid, overlay modals */
+:root{
+  color-scheme: dark;
+  --bg-1:#0f172a;
+  --bg-2:#1e1b4b;
+  --panel: rgba(30,41,59,.75);
+  --card: rgba(255,255,255,.05);
+  --border: rgba(255,255,255,.1);
+  --fg:#f8fafc;
+  --muted:#94a3b8;
+  --gold:#fbbf24;
+  --gold-2:#f59e0b;
+  --t1:#ef4444; /* الفريق الأول */
+  --t2:#3b82f6; /* الفريق الثاني */
+  --t3:#22c55e; /* الفريق الثالث */
+  --indigo:#6366f1;
+}
+
+html,body{min-height:100%;}
+body{
+  direction:rtl;
+  font-family:'Tajawal', system-ui, sans-serif;
+  background:linear-gradient(135deg,var(--bg-1) 0%, var(--bg-2) 100%);
+  background-attachment:fixed;
+  color:var(--fg);
+  min-height:100vh;
+  margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:1.25rem;
+}
+@media(min-width:768px){ body{ padding-block:2rem; } }
+
+.wrap{ max-width:1100px; margin:0 auto; width:100%; }
+
+.glass-panel{
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+/* ---- Header ---- */
+.title{
+  font-weight:900;
+  background:linear-gradient(90deg,#fbbf24,#ec4899,#818cf8);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-wrap:balance; line-height:1.3;
+}
+
+/* ---- Team scoreboard ---- */
+.team-1-bg { background: linear-gradient(135deg, rgba(239,68,68,.22), rgba(185,28,28,.22)); border-color: rgba(239,68,68,.4); }
+.team-2-bg { background: linear-gradient(135deg, rgba(59,130,246,.22), rgba(29,78,216,.22)); border-color: rgba(59,130,246,.4); }
+.team-3-bg { background: linear-gradient(135deg, rgba(34,197,94,.22), rgba(21,128,61,.22)); border-color: rgba(34,197,94,.4); }
+
+.team-card{ border-width:2px; transition: all .3s ease; }
+.team-1-active { border-color: var(--t1); box-shadow: 0 0 28px rgba(239,68,68,.6); transform: scale(1.03); }
+.team-2-active { border-color: var(--t2); box-shadow: 0 0 28px rgba(59,130,246,.6); transform: scale(1.03); }
+.team-3-active { border-color: var(--t3); box-shadow: 0 0 28px rgba(34,197,94,.6); transform: scale(1.03); }
+
+.team-name-input{
+  background:transparent; text-align:center; font-weight:900; width:100%;
+  color:#fff; border:none; border-bottom:1px solid transparent; border-radius:.3rem;
+  padding:.1rem .25rem; outline:none; font-family:inherit;
+}
+.team-name-input:focus{ background:rgba(2,6,23,.45); border-bottom-color:currentColor; }
+.score-val{ font-weight:900; font-variant-numeric:tabular-nums; }
+@keyframes pop{ 0%{transform:scale(1)} 40%{transform:scale(1.4)} 100%{transform:scale(1)} }
+.score-pop{ animation:pop .5s ease; }
+.turn-ind{ opacity:0; transition:opacity .3s ease; }
+
+/* ---- Board controls ---- */
+.board-head{ display:flex; flex-wrap:wrap; gap:.75rem; justify-content:space-between; align-items:center; margin-bottom:1.25rem; }
+.board-title{ font-weight:800; color:var(--gold); font-size:1.05rem; }
+.board-note{ color:var(--muted); font-weight:700; font-size:.85rem; }
+.board-controls{ display:flex; align-items:center; gap:.75rem; }
+.progress{ font-size:.85rem; color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums; }
+.reset-btn{ font-size:.8rem; font-weight:700; color:var(--muted); background:rgba(255,255,255,.05); border:1px solid var(--border); padding:.4rem .85rem; border-radius:.6rem; cursor:pointer; transition:all .2s; font-family:inherit; }
+.reset-btn:hover{ color:#fff; border-color:rgba(255,255,255,.3); }
+.reset-btn.armed{ color:#fff; background:rgba(239,68,68,.25); border-color:var(--t1); }
+
+/* ---- Question grid buttons ---- */
+.board-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:.75rem; }
+@media(min-width:768px){ .board-grid{ grid-template-columns:repeat(4,1fr); gap:1rem; } }
+
+.q-btn{
+  position:relative; aspect-ratio:1/1; border-radius:1rem;
+  border:1px solid var(--border); background:var(--card);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  color:var(--fg); cursor:pointer; overflow:hidden;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.3rem;
+  transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, background .25s ease;
+  font-family:inherit;
+}
+.q-btn .num{ font-size:2rem; font-weight:900; line-height:1; }
+.q-btn .pts{ font-size:.68rem; color:var(--gold); font-weight:700; }
+.q-btn .check{ position:absolute; inset:0; display:grid; place-items:center; font-size:2.6rem; color:var(--t3); opacity:0; transition:opacity .25s ease; }
+.q-btn:hover:not(.done){ transform:translateY(-5px); border-color:rgba(99,102,241,.6); background:rgba(99,102,241,.13); box-shadow:0 14px 28px -10px rgba(0,0,0,.6); }
+.q-btn:focus-visible{ outline:3px solid var(--indigo); outline-offset:2px; }
+.q-btn.done{ cursor:default; background:rgba(255,255,255,.02); border-color:rgba(34,197,94,.25); }
+.q-btn.done .num, .q-btn.done .pts{ opacity:.18; }
+.q-btn.done .check{ opacity:.95; }
+
+/* ---- Modals ---- */
+.modal{
+  position:fixed; inset:0; z-index:50; display:none;
+  align-items:center; justify-content:center;
+  padding:1rem; padding-left:max(1rem,env(safe-area-inset-left,0px)); padding-right:max(1rem,env(safe-area-inset-right,0px));
+  background:rgba(2,6,23,.9); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+.modal.is-open{ display:flex; }
+.modal-card{
+  width:100%; max-width:640px; padding:1.5rem; border-radius:1.5rem;
+  border:1px solid rgba(99,102,241,.3); box-shadow:0 25px 60px -15px rgba(0,0,0,.7);
+  max-height:92vh; overflow-y:auto;
+}
+@media(min-width:768px){ .modal-card{ padding:2rem; } }
+
+.team-banner{ text-align:center; padding:.6rem 1rem; border-radius:999px; font-weight:700; margin-bottom:1.3rem; font-size:.95rem; border:1px solid transparent; }
+.q-eyebrow{ color:var(--gold); font-weight:800; font-size:.8rem; display:block; margin-bottom:.5rem; letter-spacing:.02em; }
+.q-text{ font-size:1.35rem; font-weight:800; line-height:1.75; text-wrap:balance; margin:0 0 1.3rem; }
+@media(min-width:768px){ .q-text{ font-size:1.55rem; } }
+
+.options{ display:flex; flex-direction:column; gap:.7rem; }
+.option-btn{
+  width:100%; text-align:right; padding:.9rem 1.1rem; border-radius:1rem;
+  border:2px solid var(--border); background:rgba(255,255,255,.04); color:var(--fg);
+  font-size:1.05rem; font-weight:700; cursor:pointer; font-family:inherit;
+  display:flex; align-items:center; gap:.8rem;
+  transition: transform .18s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
+}
+.option-btn .key{ flex:none; width:2.1rem; height:2.1rem; border-radius:.6rem; display:grid; place-items:center; background:rgba(99,102,241,.22); color:#c7d2fe; font-weight:900; font-size:.95rem; }
+.option-btn .txt{ min-width:0; }
+.option-btn:hover:not(:disabled){ border-color:rgba(99,102,241,.6); background:rgba(99,102,241,.13); transform:translateX(-4px); }
+.option-btn:focus-visible{ outline:3px solid var(--indigo); outline-offset:2px; }
+.option-btn:disabled{ cursor:default; }
+.option-btn.correct{ background:rgba(34,197,94,.18)!important; border-color:var(--t3)!important; color:#dcfce7!important; }
+.option-btn.correct .key{ background:var(--t3); color:#052e16; }
+.option-btn.wrong{ background:rgba(239,68,68,.18)!important; border-color:var(--t1)!important; color:#fee2e2!important; }
+.option-btn.wrong .key{ background:var(--t1); color:#450a0a; }
+.option-btn.dim{ opacity:.4; }
+
+.feedback{ text-align:center; font-weight:800; font-size:1.05rem; border-radius:1rem; padding:0 1rem; max-height:0; overflow:hidden; opacity:0; transition: all .3s ease; }
+.feedback.show{ padding:.9rem 1rem; max-height:140px; opacity:1; margin-top:1rem; }
+.feedback.correct{ background:rgba(34,197,94,.15); color:#86efac; border:1px solid rgba(34,197,94,.4); }
+.feedback.wrong{ background:rgba(239,68,68,.15); color:#fca5a5; border:1px solid rgba(239,68,68,.4); }
+
+.next-btn{
+  display:none; width:100%; margin-top:1.3rem; padding:.9rem 1rem; border-radius:1rem; border:none; cursor:pointer;
+  font-size:1.1rem; font-weight:900; color:#1e1b4b; font-family:inherit;
+  background:linear-gradient(135deg,var(--gold),var(--gold-2));
+  transition:transform .15s ease, box-shadow .2s ease;
+}
+.next-btn:hover{ transform:translateY(-2px); box-shadow:0 10px 25px -8px rgba(245,158,11,.6); }
+.next-btn:focus-visible{ outline:3px solid #fff; outline-offset:2px; }
+
+/* ---- Results ---- */
+.results-card{ text-align:center; }
+.trophy{ font-size:4rem; line-height:1; margin-bottom:.5rem; }
+.results-title{ font-weight:900; font-size:1.8rem; margin:0 0 .4rem; color:var(--gold); }
+.results-sub{ color:var(--muted); font-weight:700; margin:0 0 1.5rem; font-size:1.05rem; }
+.standings{ display:flex; flex-direction:column; gap:.75rem; margin-bottom:1.5rem; text-align:right; }
+.stand-row{ display:flex; align-items:center; gap:1rem; padding:.9rem 1.1rem; border-radius:1rem; border:1px solid var(--border); background:rgba(255,255,255,.04); border-inline-start:5px solid var(--muted); }
+.stand-row .rank{ font-size:1.6rem; line-height:1; flex:none; }
+.stand-row .sname{ font-weight:900; font-size:1.2rem; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.stand-row .sscore{ font-weight:900; font-size:1.4rem; font-variant-numeric:tabular-nums; flex:none; }
+.stand-row.winner{ border-color:var(--gold); background:rgba(251,191,36,.12); box-shadow:0 0 25px rgba(251,191,36,.25); }
+.play-again{ display:block; }
+
+.confetti-canvas{ position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:60; }
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+</style>
+
+<div class="wrap">
+
+  <!-- Header -->
+  <header class="text-center" style="margin-bottom:1.5rem;">
+    <h1 class="title" style="font-size:clamp(1.6rem,5vw,3rem); margin:0 0 .4rem;">🎲 مسابقة الاحتمال التفاعلية 🎲</h1>
+    <p style="color:#cbd5e1; font-weight:600; margin:0; font-size:clamp(.9rem,2.5vw,1.1rem);">الرياضيات · الصف الرابع الابتدائي · المنهج السعودي</p>
+  </header>
+
+  <main style="display:flex; flex-direction:column; gap:1.5rem;">
+
+    <!-- Scoreboard -->
+    <section style="display:grid; grid-template-columns:repeat(3,1fr); gap:.6rem;">
+      <div id="team-card-0" class="glass-panel team-card team-1-bg" style="padding:1rem; border-radius:1rem; text-align:center; position:relative; overflow:hidden;">
+        <div style="font-size:.8rem; font-weight:700; color:#fca5a5; margin-bottom:.25rem;">الفريق الأول</div>
+        <input type="text" value="الفراشات" id="team-name-0" class="team-name-input" style="font-size:clamp(1rem,3.5vw,1.5rem);">
+        <div class="score-val" id="score-0" style="font-size:clamp(2rem,7vw,3rem); margin:.4rem 0; color:#fff;">٠</div>
+        <div id="turn-indicator-0" class="turn-ind" style="font-size:.75rem; font-weight:700; color:#fca5a5;">دور الفريق الآن 🎯</div>
+      </div>
+      <div id="team-card-1" class="glass-panel team-card team-2-bg" style="padding:1rem; border-radius:1rem; text-align:center; position:relative; overflow:hidden;">
+        <div style="font-size:.8rem; font-weight:700; color:#93c5fd; margin-bottom:.25rem;">الفريق الثاني</div>
+        <input type="text" value="المبدعات" id="team-name-1" class="team-name-input" style="font-size:clamp(1rem,3.5vw,1.5rem);">
+        <div class="score-val" id="score-1" style="font-size:clamp(2rem,7vw,3rem); margin:.4rem 0; color:#fff;">٠</div>
+        <div id="turn-indicator-1" class="turn-ind" style="font-size:.75rem; font-weight:700; color:#93c5fd;">دور الفريق الآن 🎯</div>
+      </div>
+      <div id="team-card-2" class="glass-panel team-card team-3-bg" style="padding:1rem; border-radius:1rem; text-align:center; position:relative; overflow:hidden;">
+        <div style="font-size:.8rem; font-weight:700; color:#86efac; margin-bottom:.25rem;">الفريق الثالث</div>
+        <input type="text" value="الرائدات" id="team-name-2" class="team-name-input" style="font-size:clamp(1rem,3.5vw,1.5rem);">
+        <div class="score-val" id="score-2" style="font-size:clamp(2rem,7vw,3rem); margin:.4rem 0; color:#fff;">٠</div>
+        <div id="turn-indicator-2" class="turn-ind" style="font-size:.75rem; font-weight:700; color:#86efac;">دور الفريق الآن 🎯</div>
+      </div>
+    </section>
+
+    <!-- Question board -->
+    <section class="glass-panel" style="padding:1.25rem; border-radius:1.25rem;">
+      <div class="board-head">
+        <h2 class="board-title">اختر سؤالاً للإجابة عليه <span class="board-note">(كل سؤال = ١٠ نقاط)</span></h2>
+        <div class="board-controls">
+          <span id="progress-text" class="progress">٠ / ١٢ أسئلة</span>
+          <button class="reset-btn" onclick="armReset(this)">تصفير اللعبة</button>
+        </div>
+      </div>
+      <div class="board-grid" id="board-buttons"></div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Question modal -->
+<div id="question-modal" class="modal">
+  <div class="glass-panel modal-card">
+    <div id="active-team-banner" class="team-banner">السؤال الحالي لـ: <span id="current-team-display" style="font-weight:900;"></span></div>
+    <div>
+      <span class="q-eyebrow" id="question-number-title">السؤال</span>
+      <h3 class="q-text" id="question-text"></h3>
+    </div>
+    <div class="options" id="options-wrap"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="next-btn" onclick="closeQuestion()">التالي ➜</button>
+  </div>
+</div>
+
+<!-- Results modal -->
+<div id="results-modal" class="modal">
+  <div class="glass-panel modal-card results-card">
+    <div class="trophy">🏆</div>
+    <h2 class="results-title" id="results-title"></h2>
+    <p class="results-sub" id="results-sub"></p>
+    <div class="standings" id="standings"></div>
+    <button class="next-btn play-again" onclick="resetGame()">🔄 العب مرة أخرى</button>
+  </div>
+</div>
+
+<canvas id="confetti" class="confetti-canvas"></canvas>
+
+<script>
+/* ===== Questions: 4th-grade Saudi probability curriculum ===== */
+const QUESTIONS = [
+  { concept:'الحدث المؤكد', q:'أيٌّ من العبارات التالية تمثّل حدثاً مؤكّد الحدوث؟',
+    options:['تشرق الشمس من جهة الشرق صباحاً','تمطر السماء غداً','تحصل على الرقم ٧ عند رمي مكعب أرقام','يفوز فريقك في المباراة القادمة'], correct:0 },
+  { concept:'الحدث المستحيل', q:'عند رمي مكعب أرقام مرقّم من ١ إلى ٦، أيُّ النتائج التالية مستحيلة؟',
+    options:['الحصول على الرقم ٣','الحصول على رقم زوجي','الحصول على الرقم ٩','الحصول على الرقم ٦'], correct:2 },
+  { concept:'الحدث الممكن', q:'كيسٌ يحتوي على كرات حمراء وزرقاء فقط. أيُّ حدث يُعدّ ممكناً عند سحب كرة واحدة؟',
+    options:['سحب كرة خضراء','سحب كرة حمراء','سحب كرة صفراء','سحب كرة بيضاء'], correct:1 },
+  { concept:'الأكثر احتمالاً', q:'كيسٌ فيه ٨ كرات حمراء وكرتان زرقاوان. عند سحب كرة واحدة، أيُّ لون أكثر احتمالاً للظهور؟',
+    options:['الأزرق','الأحمر','متساويان في الاحتمال','لا يمكن معرفة ذلك'], correct:1 },
+  { concept:'تساوي الاحتمال', q:'عند رمي قطعة نقود، كيف يكون احتمال ظهور الصورة مقارنةً بالكتابة؟',
+    options:['الصورة أكثر احتمالاً','الكتابة أكثر احتمالاً','متساويان في الاحتمال','ظهور الصورة مستحيل'], correct:2 },
+  { concept:'عدّ النواتج', q:'كم عدد النواتج الممكنة عند رمي مكعب أرقام مرقّم من ١ إلى ٦؟',
+    options:['٣ نواتج','٦ نواتج','ناتج واحد','١٢ ناتجاً'], correct:1 },
+  { concept:'الأقل احتمالاً', q:'دولاب حظٍّ مقسوم إلى ٦ أقسام حمراء وقسم واحد أخضر. عند تدوير السهم، أيُّ لون أقل احتمالاً للظهور؟',
+    options:['الأحمر','الأخضر','متساويان','كلاهما مستحيل'], correct:1 },
+  { concept:'عدّ النواتج المناسبة', q:'كيسٌ فيه ٥ كرات مرقّمة بالأرقام: ١، ٢، ٣، ٤، ٥. كم كرة منها تحمل رقماً فردياً؟',
+    options:['كرتان','٣ كرات','٤ كرات','٥ كرات'], correct:1 },
+  { concept:'الحدث المؤكد', q:'صندوقٌ يحتوي على كرات حمراء فقط. ماذا نقول عن سحب كرة منه؟',
+    options:['من المؤكّد أن تكون حمراء','من المستحيل أن تكون حمراء','قد تكون زرقاء','الاحتمال متساوٍ بين الأحمر والأزرق'], correct:0 },
+  { concept:'مقارنة الاحتمالات', q:'الكيس (أ) فيه ٣ كرات حمراء من أصل ٤، والكيس (ب) فيه كرة حمراء واحدة من أصل ٤. من أيِّ كيس يكون سحب كرة حمراء أكثر احتمالاً؟',
+    options:['الكيس (أ)','الكيس (ب)','متساويان','لا يمكن المقارنة'], correct:0 },
+  { concept:'الحدث المستحيل', q:'أيٌّ من الأحداث التالية يُعدّ مستحيلاً؟',
+    options:['أن يأتي يوم الجمعة بعد الخميس','أن يحتوي الأسبوع على ٨ أيام','أن تمطر السماء غداً','أن تحصل على الدرجة الكاملة في الاختبار'], correct:1 },
+  { concept:'عدّ النواتج', q:'كيسٌ فيه ٤ كرات حمراء و٣ كرات زرقاء وكرة صفراء واحدة. كم عدد الكرات في الكيس إجمالاً؟',
+    options:['٦ كرات','٧ كرات','٨ كرات','٩ كرات'], correct:2 },
+];
+
+const DEFAULT_NAMES = ['الفريق الأول','الفريق الثاني','الفريق الثالث'];
+const TEAM_COLORS = ['var(--t1)','var(--t2)','var(--t3)'];
+const TEAM_TINTS  = ['rgba(239,68,68,.18)','rgba(59,130,246,.18)','rgba(34,197,94,.18)'];
+const ACTIVE_CLS  = ['team-1-active','team-2-active','team-3-active'];
+const OPT_KEYS = ['أ','ب','ج','د'];
+
+let scores = [0,0,0];
+let answered = new Array(QUESTIONS.length).fill(false);
+let answeredCount = 0;
+let currentTeam = 0;
+let activeQuestion = null;
+let locked = false;
+
+function ar(n){ return String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]); }
+function teamName(t){ const el=document.getElementById('team-name-'+t); return (el && el.value.trim()) ? el.value.trim() : DEFAULT_NAMES[t]; }
+
+function renderBoard(){
+  const grid = document.getElementById('board-buttons');
+  grid.innerHTML = '';
+  QUESTIONS.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.className = 'q-btn';
+    b.id = 'qbtn-' + i;
+    b.innerHTML = '<span class="num">' + ar(i+1) + '</span><span class="pts">١٠ نقاط</span><span class="check">✓</span>';
+    b.addEventListener('click', () => openQuestion(i));
+    grid.appendChild(b);
+  });
+}
+
+function updateTurnUI(){
+  for (let t = 0; t < 3; t++){
+    const card = document.getElementById('team-card-' + t);
+    const ind  = document.getElementById('turn-indicator-' + t);
+    card.classList.remove('team-1-active','team-2-active','team-3-active');
+    ind.style.opacity = '0';
+    if (t === currentTeam){
+      card.classList.add(ACTIVE_CLS[t]);
+      ind.style.opacity = '1';
+    }
+  }
+  document.getElementById('progress-text').textContent = ar(answeredCount) + ' / ' + ar(QUESTIONS.length) + ' أسئلة';
+}
+
+function openQuestion(i){
+  if (answered[i] || locked) return;
+  activeQuestion = i;
+  locked = false;
+  const q = QUESTIONS[i];
+
+  const banner = document.getElementById('active-team-banner');
+  banner.style.background = TEAM_TINTS[currentTeam];
+  banner.style.borderColor = TEAM_COLORS[currentTeam];
+  banner.style.color = '#fff';
+  document.getElementById('current-team-display').textContent = teamName(currentTeam);
+
+  document.getElementById('question-number-title').textContent = 'السؤال رقم ' + ar(i+1) + ' • ' + q.concept;
+  document.getElementById('question-text').textContent = q.q;
+
+  const wrap = document.getElementById('options-wrap');
+  wrap.innerHTML = '';
+  q.options.forEach((opt, idx) => {
+    const b = document.createElement('button');
+    b.className = 'option-btn';
+    b.innerHTML = '<span class="key">' + OPT_KEYS[idx] + '</span><span class="txt">' + opt + '</span>';
+    b.addEventListener('click', () => answer(idx));
+    wrap.appendChild(b);
+  });
+
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback';
+  fb.textContent = '';
+  document.getElementById('next-btn').style.display = 'none';
+
+  document.getElementById('question-modal').classList.add('is-open');
+}
+
+function answer(idx){
+  if (locked) return;
+  locked = true;
+  const q = QUESTIONS[activeQuestion];
+  const btns = document.querySelectorAll('#options-wrap .option-btn');
+  btns.forEach((b, bi) => {
+    b.disabled = true;
+    if (bi === q.correct) b.classList.add('correct');
+    else if (bi === idx) b.classList.add('wrong');
+    else b.classList.add('dim');
+  });
+
+  const fb = document.getElementById('feedback');
+  if (idx === q.correct){
+    scores[currentTeam] += 10;
+    const sc = document.getElementById('score-' + currentTeam);
+    sc.textContent = ar(scores[currentTeam]);
+    sc.classList.remove('score-pop'); void sc.offsetWidth; sc.classList.add('score-pop');
+    fb.className = 'feedback correct show';
+    fb.textContent = '🎉 إجابة صحيحة! ‏+١٠ نقاط لفريق ' + teamName(currentTeam);
+  } else {
+    fb.className = 'feedback wrong show';
+    fb.textContent = '❌ إجابة غير صحيحة. الإجابة الصحيحة موضّحة باللون الأخضر.';
+  }
+
+  const nextTeam = (currentTeam + 1) % 3;
+  const nb = document.getElementById('next-btn');
+  nb.textContent = (answeredCount + 1 >= QUESTIONS.length) ? 'عرض النتيجة النهائية 🏁' : ('التالي: دور ' + teamName(nextTeam) + ' ➜');
+  nb.style.display = 'block';
+}
+
+function closeQuestion(){
+  if (activeQuestion === null) return;
+  const i = activeQuestion;
+  if (!answered[i]){ answered[i] = true; answeredCount++; }
+  const bb = document.getElementById('qbtn-' + i);
+  bb.classList.add('done'); bb.disabled = true;
+
+  document.getElementById('question-modal').classList.remove('is-open');
+  activeQuestion = null;
+  locked = false;
+
+  currentTeam = (currentTeam + 1) % 3;
+  updateTurnUI();
+
+  if (answeredCount >= QUESTIONS.length) showResults();
+}
+
+function showResults(){
+  const standing = [0,1,2].map(t => ({ t, name: teamName(t), score: scores[t] }))
+                          .sort((a,b) => b.score - a.score);
+  const top = standing[0].score;
+  const winners = standing.filter(s => s.score === top);
+
+  const titleEl = document.getElementById('results-title');
+  const subEl = document.getElementById('results-sub');
+  if (winners.length === 1){
+    titleEl.textContent = 'الفريق الفائز: ' + winners[0].name;
+    subEl.textContent = 'مبروك! حصل على ' + ar(top) + ' نقطة 🎉';
+  } else {
+    titleEl.textContent = 'تعادل! 🤝';
+    subEl.textContent = 'تعادلت الفرق: ' + winners.map(w => w.name).join('، ') + ' بـ ' + ar(top) + ' نقطة';
+  }
+
+  const medals = ['🥇','🥈','🥉'];
+  const box = document.getElementById('standings');
+  box.innerHTML = '';
+  standing.forEach((s, rank) => {
+    const row = document.createElement('div');
+    row.className = 'stand-row' + (s.score === top ? ' winner' : '');
+    row.style.borderInlineStartColor = TEAM_COLORS[s.t];
+    row.innerHTML =
+      '<span class="rank">' + medals[rank] + '</span>' +
+      '<span class="sname">' + s.name + '</span>' +
+      '<span class="sscore">' + ar(s.score) + '</span>';
+    box.appendChild(row);
+  });
+
+  document.getElementById('results-modal').classList.add('is-open');
+  startConfetti();
+}
+
+function resetGame(){
+  scores = [0,0,0];
+  answered = new Array(QUESTIONS.length).fill(false);
+  answeredCount = 0;
+  currentTeam = 0;
+  activeQuestion = null;
+  locked = false;
+  [0,1,2].forEach(t => document.getElementById('score-' + t).textContent = '٠');
+  renderBoard();
+  updateTurnUI();
+  document.getElementById('results-modal').classList.remove('is-open');
+  stopConfetti();
+}
+
+/* Two-step reset to avoid accidental clearing */
+let resetArmed = false, resetTimer = null;
+function armReset(btn){
+  if (!resetArmed){
+    resetArmed = true;
+    btn.textContent = 'اضغط للتأكيد';
+    btn.classList.add('armed');
+    resetTimer = setTimeout(() => { resetArmed = false; btn.textContent = 'تصفير اللعبة'; btn.classList.remove('armed'); }, 3000);
+    return;
+  }
+  clearTimeout(resetTimer);
+  resetArmed = false; btn.textContent = 'تصفير اللعبة'; btn.classList.remove('armed');
+  resetGame();
+}
+
+/* ===== Confetti ===== */
+let confettiRAF = null;
+function stopConfetti(){
+  if (confettiRAF) cancelAnimationFrame(confettiRAF);
+  confettiRAF = null;
+  const c = document.getElementById('confetti');
+  const ctx = c.getContext('2d');
+  if (ctx) ctx.clearRect(0,0,c.width,c.height);
+}
+function startConfetti(){
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c = document.getElementById('confetti');
+  const ctx = c.getContext('2d');
+  c.width = window.innerWidth; c.height = window.innerHeight;
+  const colors = ['#ef4444','#3b82f6','#22c55e','#fbbf24','#a855f7','#f8fafc'];
+  const parts = [];
+  for (let i = 0; i < 150; i++){
+    parts.push({
+      x: Math.random() * c.width,
+      y: Math.random() * -c.height,
+      w: 6 + Math.random() * 8,
+      h: 8 + Math.random() * 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vy: 2 + Math.random() * 4,
+      vx: -2 + Math.random() * 4,
+      rot: Math.random() * Math.PI,
+      vr: -0.2 + Math.random() * 0.4
+    });
+  }
+  const start = Date.now();
+  stopConfetti();
+  function frame(){
+    ctx.clearRect(0,0,c.width,c.height);
+    parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.vy += 0.03;
+      if (p.y > c.height + 20){ p.y = -20; p.x = Math.random() * c.width; }
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+      ctx.restore();
+    });
+    if (Date.now() - start < 6000){ confettiRAF = requestAnimationFrame(frame); }
+    else { stopConfetti(); }
+  }
+  frame();
+}
+window.addEventListener('resize', () => {
+  const c = document.getElementById('confetti');
+  if (c){ c.width = window.innerWidth; c.height = window.innerHeight; }
+});
+
+/* ===== Init ===== */
+renderBoard();
+updateTurnUI();
+</script>
+
+</body></html>
